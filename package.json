@@ -1,0 +1,19 @@
+{
+  "name": "bull_test",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@bull-board/express": "^5.23.0",
+    "@taskforcesh/bullmq-pro": "^7.35.2",
+    "winston": "^3.7.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}

@@ -1,0 +1,31 @@
+secrets:
+  NPM_TASKFORCESH_TOKEN:
+    environment: NPM_TASKFORCESH_TOKEN
+
+services:
+  redis:
+    image: redis:7.0.11-alpine
+    ports:
+      - 6379:6379
+  app:
+    build:
+        context: .
+        dockerfile: ./Dockerfile
+        secrets:
+        - NPM_TASKFORCESH_TOKEN
+    depends_on:
+        - redis
+    command:
+      [
+        "nodemon",
+        "--legacy-watch",
+        "src/index.js"
+      ]
+    env_file: "./.env"
+    environment:
+      CHILD_QUEUE: true
+      CHILD_QUEUE_COUNT: 1
+      PARENT_QUEUE: true
+      PARENT_QUEUE_COUNT: 1
+    volumes:
+        - ./src:/app/src
