@@ -65,6 +65,10 @@ function attachWorkerEventHandlers(worker) {
         console.info(`Heard a 'fail' for worker ${worker.name}. Job on attempt ${job.attemptsStarted} of ${job.opts.attempts}.`);
 
         if (!job.opts || job.attemptsStarted >= job.opts.attempts) {
+            //wait 10 seconds to account for race conditions
+            await new Promise((resolve) => {
+                setTimeout(() => resolve(), 10000);
+            });
             //remove any remaining jobs in the flow
             if(job.parent){
                 const flow = new FlowProducerPro({ connection });
