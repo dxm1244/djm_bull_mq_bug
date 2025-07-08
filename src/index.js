@@ -95,9 +95,10 @@ async function submitJobs() {
     //usually the jobId is from the database, but we'll use time instead
     const jobId = Date.now();
     
-    const childJobDefs = Array(config.settings.childCount).map((value, index) => {
-        return {
-            name: `CHILD_QUEUE:${jobId}_${index}`,
+    const childJobDefs = [];
+    for(let i = 0; i < config.settings.childCount; i++) {
+        childJobDefs.push({
+            name: `CHILD_QUEUE:${jobId}_${i}`,
             opts: {
                 attempts: 2,
                 backoff: {
@@ -106,14 +107,14 @@ async function submitJobs() {
                 },
                 ...bullmqDefaultOptions,
                 debounce: {
-                    id:`CHILD_QUEUE:${jobId}`,
+                    id:`CHILD_QUEUE:${jobId}_${i}`,
                     ttl: 50000//ms
                 }
             },
             queueName: 'CHILD_QUEUE',
-            data: { failTheJob: index < config.settings.childFailCount },
-        }
-    })
+            data: { failTheJob: i < config.settings.childFailCount }
+        })
+    }
 
     //define our parent job
     const parentJobDef = {
