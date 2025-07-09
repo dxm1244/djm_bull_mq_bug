@@ -78,19 +78,23 @@ function attachWorkerEventHandlers(worker) {
                     queueName: job.parent.queueKey.replace('bull:', ''),
                     maxChildren: 10_000
                 });
-                await tree.job.removeUnprocessedChildren();
 
-                await new Promise((resolve) => {
-                    setTimeout(() => resolve(), 10000);
-                });
+                if (tree) {
+                    await tree.job.removeUnprocessedChildren();
+                    await new Promise((resolve) => {
+                        setTimeout(() => resolve(), 5000);
+                    });
 
-                const { children } = tree;
-                if (children?.length > 0) {
-                    for (const child of children) {
-                        const state = await child.job.getState();
-                        console.log(`[Error Handler] Status of child job ${child.job.name} is ${state}`);
+                    const { children } = tree;
+                    if (children?.length > 0) {
+                        for (const child of children) {
+                            const state = await child.job.getState();
+                            console.log(`[Error Handler] Status of child job ${child.job.name} is ${state}`);
+                        }
                     }
                 }
+
+
                 flow.close();
             }
         }
@@ -100,7 +104,7 @@ function attachWorkerEventHandlers(worker) {
 async function submitJobs() {
     const bullmqDefaultOptions = {
         removeOnComplete: 1000, //expect that redis will retain the most recent 1000 completed jobs
-        removeOnFail: 5000, //expect that redis will retain the most recent 5000 failures
+        removeOnFail: 2, //expect that redis will retain the most recent 5000 failures
         failParentOnFailure: true
     };
 
