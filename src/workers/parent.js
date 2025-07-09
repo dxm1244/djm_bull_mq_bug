@@ -4,9 +4,9 @@ module.exports = async (sandboxedJob) => {
             setTimeout(() => resolve(), 1000);
         })
 
-        console.log('Parent is running');
+        console.log(`[Parent] is running`);
         return true;
-    } 
+    }
     catch (e) {
         throw e;
     }

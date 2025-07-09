@@ -3,7 +3,7 @@ const { WorkerPro, FlowProducerPro } = require('@taskforcesh/bullmq-pro');
 const config = require('./config/app.js');
 const connection = config.redis;
 
-const getWorkerModule = function(modulePath) {
+const getWorkerModule = function (modulePath) {
     if (config.bull.useSandboxedWorker) {
         return path.join(__dirname, modulePath);
     } else {
@@ -19,15 +19,15 @@ const workers = {
 
 async function startWorkers() {
     const workerInstances = [];
-    for(const queue of  Object.keys(config.queues)) {
+    for (const queue of Object.keys(config.queues)) {
         if (config.queues[queue].workerIsActive) {
-                let worker = await startWorker(queue);
+            let worker = await startWorker(queue);
 
-                //attach event handlers
-                attachWorkerEventHandlers(worker);
+            //attach event handlers
+            attachWorkerEventHandlers(worker);
 
-                //track instances
-                workerInstances.push(worker);
+            //track instances
+            workerInstances.push(worker);
         }
     }
 
@@ -62,23 +62,35 @@ function attachWorkerEventHandlers(worker) {
 
     worker.on('failed', async (job, error) => {
         // hopefully this is just one per job. Maybe we don't want on the listeners at all.
-        console.info(`Heard a 'fail' for worker ${worker.name}. Job on attempt ${job.attemptsStarted} of ${job.opts.attempts}.`);
+        console.info(`[Error Handler] Heard a 'fail' for worker ${worker.name}. Job on attempt ${job.attemptsStarted} of ${job.opts.attempts}.`);
 
         if (!job.opts || job.attemptsStarted >= job.opts.attempts) {
             //wait 10 seconds to account for race conditions
-            await new Promise((resolve) => {
-                setTimeout(() => resolve(), 10000);
-            });
+            // await new Promise((resolve) => {
+            //     setTimeout(() => resolve(), 10000);
+            // });
             //remove any remaining jobs in the flow
-            if(job.parent){
+            if (job.parent) {
                 const flow = new FlowProducerPro({ connection });
 
                 const tree = await flow.getFlow({
-                    id:  job.parent.id,
+                    id: job.parent.id,
                     queueName: job.parent.queueKey.replace('bull:', ''),
                     maxChildren: 10_000
                 });
                 await tree.job.removeUnprocessedChildren();
+
+                await new Promise((resolve) => {
+                    setTimeout(() => resolve(), 10000);
+                });
+
+                const { children } = tree;
+                if (children?.length > 0) {
+                    for (const child of children) {
+                        const state = await child.job.getState();
+                        console.log(`[Error Handler] Status of child job ${child.job.name} is ${state}`);
+                    }
+                }
                 flow.close();
             }
         }
@@ -88,31 +100,34 @@ function attachWorkerEventHandlers(worker) {
 async function submitJobs() {
     const bullmqDefaultOptions = {
         removeOnComplete: 1000, //expect that redis will retain the most recent 1000 completed jobs
-        removeOnFail: 1, //expect that redis will retain the most recent 5000 failures
+        removeOnFail: 5000, //expect that redis will retain the most recent 5000 failures
         failParentOnFailure: true
     };
 
     //usually the jobId is from the database, but we'll use time instead
     const jobId = Date.now();
-    
+
     const childJobDefs = [];
-    for(let i = 0; i < config.settings.childCount; i++) {
+    for (let i = 0; i < config.settings.childCount; i++) {
         childJobDefs.push({
             name: `CHILD_QUEUE:${jobId}_${i}`,
             opts: {
-                attempts: 2,
+                attempts: 1,
                 backoff: {
                     type: 'exponential',
                     delay: 10000,
                 },
                 ...bullmqDefaultOptions,
                 debounce: {
-                    id:`CHILD_QUEUE:${jobId}_${i}`,
+                    id: `CHILD_QUEUE:${jobId}_${i}`,
                     ttl: 50000//ms
                 }
             },
             queueName: 'CHILD_QUEUE',
-            data: { failTheJob: i < config.settings.childFailCount }
+            data: {
+                failTheJob: i < config.settings.childFailCount,
+                value: i,
+            }
         })
     }
 
@@ -122,7 +137,7 @@ async function submitJobs() {
         opts: {
             ...bullmqDefaultOptions,
             debounce: {
-                id:`PARENT_QUEUE_setup:${jobId}`,
+                id: `PARENT_QUEUE_setup:${jobId}`,
                 ttl: 50000//ms
             }
         },

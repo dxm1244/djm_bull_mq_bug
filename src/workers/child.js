@@ -1,27 +1,28 @@
 module.exports = async (job) => {
     //leaving this here since it was referenced in my previous emails
     // check if we've been running too many times and getting killed by the OS/k8s
-    if (job.attemptsStarted > 2) {
-        console.error(`Too many runs. OS is probably killing us. ${job.attemptsStarted} > 2`);
-        throw new Error(`Too many runs. OS is probably killing us.`);
+    if (job.attemptsStarted > job.opts.attempts) {
+        console.error(`[Child] [${job.name}] Too many runs. OS is probably killing us. ${job.attemptsStarted} > ${job.opts.attempts}`);
+        throw new Error(`[Child] [${job.name}] Too many runs. OS is probably killing us.`);
     }
     else {
-        console.log(`On runId ${job.attemptsStarted} of the allowed 2`);
+        console.log(`[Child] [${job.name}] Started runId ${job.attemptsStarted} of ${job.opts.attempts}`);
     }
 
-    console.log(`Child '${job.name}' started`)
-
     await new Promise((resolve) => {
-        setTimeout(() => resolve(), 3000);
+        setTimeout(() => resolve(), 500);
     })
 
     // throw an error to fail the child
-    console.log(`Child attempt ${job.attemptsStarted} for '${job.name}'`)
-    if(job.data.failTheJob) {
-        throw new Error('The child was failed on purpose');
-        console.log('Child failed');
+    //console.log(`[Child] [${job.name}] attempt ${job.attemptsStarted} for`)
+    if (job.data.value === 2) {
+        throw new Error(`[Child] [${job.name}] The child was failed on purpose`);
     }
-    console.log('Child succeeded');
+    // if (job.data.failTheJob) {
+    //     throw new Error(`[Child] [${job.name}] The child was failed on purpose`);
+    //     //console.log('[Child] [${job.name}]failed');
+    // }
+    //console.log(`[Child] [${job.name}] succeeded`);
 
     return true;
 };
